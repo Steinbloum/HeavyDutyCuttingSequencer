@@ -1,0 +1,16 @@
+{
+    "machine" :{
+        "cutting_time" : "INPUT TIME (s)", 
+        "loading_time" : "INPUT TIME (s)",
+        "offset" : "INPUT OFFSET (mm)",
+        "min_cut" : "INPUT MIN CUT (mm)"
+
+    },
+    "load" : {
+        "stock_lenght" : "INPUT LENGHT (mm)"        
+    },
+    "storage" : [
+        "INPUT TUPLES (MIN_LGT(mm), MAX_LGT(mm))"
+    ]
+    
+}
