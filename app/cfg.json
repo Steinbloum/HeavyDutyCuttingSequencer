@@ -5,9 +5,12 @@
         "offset" : 0,
         "min_cut" : 0
 
+        
     },
     "load" : {
-        "stock_lenght" : 6000        
+        "stock_lenght" : 6000,
+        "linear_weight" : 3.41, 
+        "linear_price" :  9.5    
     },
     "storage" : [
         [1000,1500], [1500,2000], [2000,2500], [2500,3000], [3000, 3500]
