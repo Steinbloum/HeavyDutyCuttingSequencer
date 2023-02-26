@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-import random
+import time
 import json
 from sequencer import Simulator
 from icecream import ic
@@ -52,73 +52,6 @@ class Hdcs:
 
     """MAIN METHODS"""
 
-    # def _set_cuts_df(self, initial = False):
-    #     if initial:
-    #           df = self.prod[['lg', 'rep']]
-    #           df['rest'] = self.params["load"]["stock_lenght"] - df.lg
-    #           df.index = [f"_{x}" for x in df.rep]
-    #           df = df.drop(columns = ['lg', 'rep'])
-    #           self.av_cuts = df
-        
-    #     return df
-    
-    # def _make_cuts(self, reps):
-        # reps = reps.split("_")[1:]
-        # df = self.prod.loc[self.prod.rep.isin([int(x) for x in reps])].copy()
-        # if self.cuts is None:
-        #     df['count'] = 1 
-        # else:
-        #     df['count'] = self.cuts["count"].iloc[-1] + 1
-        # df["depth"] = len(reps)
-        # df["rest"] = np.NaN
-        # df.loc[df.index[-1], "rest"] = self.params["load"]["stock_lenght"] - np.sum(df.lg)
-        # self.cuts = pd.concat([self.cuts, df])
-        # self._set_prod(self.prod.loc[~self.prod.rep.isin(list(self.cuts.rep))])
-        
-    # def _cut_unsalvageable(self):
-    #     cuts = self.av_cuts.loc[self.av_cuts.rest < self.params["storage"][0][0]]
-    #     for n in cuts.index:
-    #         self._make_cuts(n)
-    #     self.av_cuts = self._set_cuts_df(initial=True)
-  
-    # def _update_av_cuts(self):
-    #     pass
-
-    # def add_depth(self):
-    #     df = self.av_cuts.copy()
-    #     dive = False
-    #     depth = 1
-    #     for rep, lg in zip(self.prod.rep, self.prod.lg):
-    #         if lg <= np.max(df.rest):
-    #             df['reps'] = [y for y in[x.split("_")[1:] for x in df.index]]
-    #             df[str(rep)] = df.apply(lambda row : np.NaN if str(rep) in row['reps'] else row['rest'] - lg, axis=1)
-    #             depth = len(df.loc[df.index[-1], "reps"])
-    #             df = df.drop(columns = ['reps'])
-    #     df[df <= 0] = np.NaN
-    #     ic(df)
-    #     vcuts = []
-    #     for col in df.columns[1:]:
-    #         vcuts.extend([f"{x}_{col}" for x in df[col].dropna().index if int(col)< int(x.split("_")[-1])])
-    #     idx = df.index.tolist() + vcuts
-    #     ic(idx)
-    #     cdf = pd.DataFrame(index = idx)
-    #     return cdf
-    
-    # def _set_rest_col(self, idx) : 
-    #     """makes a 'rest' column from the dataframe index"""
-    #     ic(self.prod, self.prod.dtypes)
-    #     df = idx
-    #     ls = [y.split("_")[1:] for y in [x for x in df.index]]
-    #     rest = []
-    #     for n in ls : 
-    #         _ls = [int(x) for x in n]
-    #         s = self.params['load']['stock_lenght'] - np.sum(self.prod.loc[self.prod.rep.isin(_ls), 'lg'])
-    #         rest.append(s
-    #                     )
-    #     df['rest'] = rest
-    #     self.av_cuts = df
-
-
 
     def _init_cuts_df(self):
         """sets the 'rest' col on avlbl_cuts based on reps column
@@ -133,7 +66,7 @@ class Hdcs:
         if not "_" in reps:
             cut = self.prod.loc[self.prod.rep == int(reps)].copy()
         else:
-            cut = self.prod.loc[self.prod.rep.isin([int(x) for x in (reps.split("_"))])].copy()
+            cut = self.prod.loc[self.prod.rep.isin([int(x) for x in reps.split("_")[1:]])].copy()
         cut['count'] = count
         cut.loc[cut.index[-1], 'rest'] = self.params['load']['stock_lenght']-np.sum(cut.lg)
         cut.loc[cut.index[0], 'origin'] = origin
@@ -153,8 +86,12 @@ class Hdcs:
         if self.avlbl_cuts is None:
             return None
         df = self.avlbl_cuts.copy()
+        ic(df)
+        ic(self.cuts)
         if isinstance(df.loc[df.index[0], 'reps'], np.int64):
-            df['iscut'] = df.reps.isin([int(x) for x in self.cuts.rep])
+            df['reps'] = [f"_{x}" for x in df.reps]
+        df["iscut"] = df.apply(lambda row: True if any([z == y] for z in row["reps"].split("_")[1:] for y in [str(x) for x in self.cuts.rep]) else False, axis = 1)
+        ic(df)
         self.avlbl_cuts = df.loc[~df.iscut].drop(columns=['iscut'])
         return df.loc[~df.iscut].drop(columns=['iscut'])
 
@@ -166,45 +103,139 @@ class Hdcs:
         for rep in df.reps:
             self._make_cut(str(rep))
 
-    def add_depth(self):
+    def _add_depth(self):
 
-        def get_rest_col(df):
-            # reps = [int(x) for x in y.split("_")[1:] for y in df.re)]
-            df['rest'] = [self.params['load']["stock_lenght"] - self.prod.loc[self.prod.rep.isin([int(y) for y in x.split("_")]), 'lg'] for x in df.reps]
-            return df
-
+             
         df = self.avlbl_cuts.copy()
         if np.issubdtype(df.reps, np.int64):
-            df['reps'] = [f"_{x}" for x in df['reps']]
-        for rep, lg in zip(self.prod.rep, self.prod.lg):
-            if lg <= np.max(df.rest):
-                df[str(rep)] = df.apply(lambda row : 
-                                        np.NaN if str(rep) in row['reps'].split("_") 
-                                        else row['rest'] - lg, axis=1)
-        df.index = df.reps
-        df = df.drop(columns=['rest', 'reps'])
-        df[df<0] = np.NaN
-        df = df.dropna(how = 'all', axis=0).dropna(how = 'all', axis=1)
-        ic(df)
-        vcuts = []
-        for col in df.columns[1:]:
-            vcuts.extend([f"{x}_{col}" for x in df[col].dropna().index if int(col)< int(x.split("_")[-1])])
-            if len(vcuts) == 0:
-                return None
-        df = pd.DataFrame({"reps":df.index.tolist() + vcuts})
-        df = get_rest_col(df)
-        ic(df)
+            df['reps'] = [f"_{x}" for x in df['reps']] #for the first iteration
+        df = self._get_rest_col(df)
+        depth = np.max([len(x.split("_")) for x in df.reps])-1
+        st = time.time()
+        df = self._add_combination(df)
+        ic(f"comb time : {time.time() - st}")
+        if df is None:
+            return None
+        valids = self._locate_positive_values(df)
+        return valids
 
+    def set_max_depths(self):
+        while True :
+            valid_cuts = self._add_depth()
+            if valid_cuts is None:
+                break
+            else: 
+                ic('Adding another depth')
+                df = self.avlbl_cuts.copy()
+                if np.issubdtype(df.reps, np.int64):
+                    df['reps'] = [f"_{x}" for x in df['reps']] #for the first iteration
+                df = pd.DataFrame({"reps" : df.reps.tolist() + valid_cuts})
+                self.avlbl_cuts = self._get_rest_col(df)
+                # ic(self.avlbl_cuts)
+
+    def cut_best_fits(self):
+        df = self.avlbl_cuts.copy()
+        df['depth'] = [len(x.split("_")[1:]) for x in df.reps]
+        df = df.sort_values(by=['depth', 'rest'], ascending=[False, True])
+
+        fitdf = pd.DataFrame()
+        maxi = self.params['rules']["acceptable"]
+
+        while True :
+            fitdf = self.avlbl_cuts.loc[self.avlbl_cuts.rest<maxi].sort_values(by = "rest").copy()
+            if len(fitdf) == 0:
+                break
+            self._make_cut(fitdf.reps.iloc[0])
+            ic(self.cuts, self.prod, self.avlbl_cuts)
+
+
+
+
+    """DATAFRAME MANIUPLATION METHODS"""
+
+    def _get_rest_col(self, df):
+        """Will add a "rest" column
+        REQUIRED "reps" column
+
+        Args:
+            df (pd.DataFrame, optional): Dataframe to process
+        """
+        df['rest'] = [self.params['load']["stock_lenght"] - np.sum(self.prod.
+                                                                loc[self.prod.rep.isin(
+                                                                [int(y) for y in x.split("_")[1:]]), 'lg']) 
+                                                                for x in df.reps]
+        return df
     
+    def _add_combination(self, df):
+        """Tries to sum what's lef in self.prod to each previous combination. Reps in index for further transfomrations
+
+        Args:
+            df (pd.DataFrame, optional): REQUIRED : "reps". Defaults to None.
+
+        Returns:
+            _type_: _description_
+        """
+
+        df['depth'] = [len(x.split("_")[1:]) for x in df.reps]
+        # depth = np.max([len(x.split("_")[1:]) for x in df.reps])
+        df = df.loc[df.depth == np.max(df.depth)]
+        df = df.drop(columns = ['depth'])
+        for rep in self.prod.rep:
+            df[str(rep)]  = df.apply(lambda row : np.NaN 
+                                    if (str(rep) in row['reps'].split("_")) 
+                                    else row['rest'] - self.prod.loc[self.prod.rep == rep, "lg"].iloc[0], axis =1)
+        df.index = df.reps
+        df = df.drop(columns=['reps', 'rest'])
+        df[df<0] = np.NaN
+        df = df.dropna(how = "all", axis = 0).dropna(how = "all", axis = 1)
+        
+        return None if len(df) == 0 else df
+
+    def _locate_positive_values(self, df):
+        """locates positive values in df 
+        Returns a list of tuples with coords : [("row", "col")]"""
+        # ic(df)
+        valids = pd.DataFrame(np.where(df>=0)).transpose()
+        valids.columns = ['row', 'col']
+        depth = np.max([len(x.split("_")) for x in df.index])-1
+        if depth == 1:
+            valids = valids.loc[valids.row<valids.col]
+        valids.row = df.index[valids.row]
+        valids.col = df.columns[valids.col]
+        valid_cuts = ["_".join(coords) for coords in list(zip(valids.row.tolist(), valids.col.tolist()))]
+        valid_cuts = ["_"+"_".join(sorted(x.split("_")[1:])) for x in valid_cuts]
+
+        valid_cuts = list(dict.fromkeys(valid_cuts))
+
+        if len(valid_cuts) == 0:
+            return None
+        return valid_cuts
+        
+
+
+
+
+
+
+
 
 sim = Simulator()    
 s = Hdcs()
 
-prod = sim.simulate_tube60_prod(10)
+prod = sim.simulate_tube60_prod(30)
+# ic(prod)
 s.init_prod(prod)
+ic(s.prod)
 s._init_cuts_df()
-s.cut_forced_waste()
-s.add_depth()
+# s.cut_forced_waste()
+ic(s.prod)
+s.set_max_depths()
+df = s.avlbl_cuts
+df['depth'] = [len(x.split("_")[1:]) for x in df.reps]
+ic(f"{len(df)} possible combinations")
+ic(df.sort_values(by=['depth', 'rest'], ascending=[False, True]))
+s.cut_best_fits()
+
 
 
 
