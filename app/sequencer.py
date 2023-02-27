@@ -260,7 +260,7 @@ class Simulator:
         """        
         prod = [{
             "qtt" : random.choices(range(1,11), weights=[30,2,0.25,0.25,0.25,0.25,0.25,0.25,0.25,0.3])[0],
-            "lg" : random.choice(range(1150,5700))
+            "lg" : random.choice(range(950,5700))
         } for n in range(nb_com)]
         df = pd.DataFrame.from_records(prod)
         df["lg"] = (5 * round(df['lg']/5))

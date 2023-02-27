@@ -71,7 +71,7 @@ class Hdcs:
         cut.loc[cut.index[-1], 'rest'] = self.params['load']['stock_lenght']-np.sum(cut.lg)
         cut.loc[cut.index[0], 'origin'] = origin
         cut.loc[cut.index[-1], 'excess'] = excess
-        cut.loc[:,'depth'] = len(reps) if isinstance(reps, list) else 1
+        # cut.loc[:,'depth'] = len(reps) if isinstance(reps, list) else 1
         if self.cuts is None:
             self.cuts = cut
         else:
@@ -86,12 +86,13 @@ class Hdcs:
         if self.avlbl_cuts is None:
             return None
         df = self.avlbl_cuts.copy()
-        ic(df)
-        ic(self.cuts)
         if isinstance(df.loc[df.index[0], 'reps'], np.int64):
             df['reps'] = [f"_{x}" for x in df.reps]
-        df["iscut"] = df.apply(lambda row: True if any([z == y] for z in row["reps"].split("_")[1:] for y in [str(x) for x in self.cuts.rep]) else False, axis = 1)
-        ic(df)
+        reps = df.reps.tolist()
+        reps = [x.split("_")[1:] for x in reps]
+        reps = [[int(y) for y in x] for x in reps]
+        reps = [any([x in self.cuts.rep for x in z]) for z in reps]
+        df['iscut'] = reps
         self.avlbl_cuts = df.loc[~df.iscut].drop(columns=['iscut'])
         return df.loc[~df.iscut].drop(columns=['iscut'])
 
@@ -130,11 +131,12 @@ class Hdcs:
                 if np.issubdtype(df.reps, np.int64):
                     df['reps'] = [f"_{x}" for x in df['reps']] #for the first iteration
                 df = pd.DataFrame({"reps" : df.reps.tolist() + valid_cuts})
-                self.avlbl_cuts = self._get_rest_col(df)
+            self.avlbl_cuts = self._get_rest_col(df)
                 # ic(self.avlbl_cuts)
 
     def cut_best_fits(self):
         df = self.avlbl_cuts.copy()
+        ic(df)
         df['depth'] = [len(x.split("_")[1:]) for x in df.reps]
         df = df.sort_values(by=['depth', 'rest'], ascending=[False, True])
 
@@ -146,7 +148,8 @@ class Hdcs:
             if len(fitdf) == 0:
                 break
             self._make_cut(fitdf.reps.iloc[0])
-            ic(self.cuts, self.prod, self.avlbl_cuts)
+            # ic(fitdf, self.cuts, self.avlbl_cuts)
+            ic(f"{len(self.avlbl_cuts)} combinations left")
 
 
 
@@ -180,16 +183,23 @@ class Hdcs:
         # depth = np.max([len(x.split("_")[1:]) for x in df.reps])
         df = df.loc[df.depth == np.max(df.depth)]
         df = df.drop(columns = ['depth'])
+        reps = df.reps
+        ls = []
+        ic(df)
         for rep in self.prod.rep:
-            df[str(rep)]  = df.apply(lambda row : np.NaN 
-                                    if (str(rep) in row['reps'].split("_")) 
-                                    else row['rest'] - self.prod.loc[self.prod.rep == rep, "lg"].iloc[0], axis =1)
+            lg = self.prod.loc[self.prod.rep == rep, "lg"].iloc[0]
+            ls.append(pd.Series([x-lg for x,y in list(zip(df.rest, df.reps)) if str(rep) not in y.split("_")], name=str(rep)))
+            # ic(ls)
+        df = pd.concat(ls, axis=1)
+        df["reps"] = reps
         df.index = df.reps
-        df = df.drop(columns=['reps', 'rest'])
-        df[df<0] = np.NaN
-        df = df.dropna(how = "all", axis = 0).dropna(how = "all", axis = 1)
+        df = df.drop(columns=[("reps")])
+        ic(df)
+
         
         return None if len(df) == 0 else df
+
+
 
     def _locate_positive_values(self, df):
         """locates positive values in df 
@@ -197,15 +207,26 @@ class Hdcs:
         # ic(df)
         valids = pd.DataFrame(np.where(df>=0)).transpose()
         valids.columns = ['row', 'col']
-        depth = np.max([len(x.split("_")) for x in df.index])-1
-        if depth == 1:
-            valids = valids.loc[valids.row<valids.col]
+        # depth = np.max([len(x.split("_")) for x in df.index])-1
+        # if depth == 1:
+        #     valids = valids.loc[valids.row<valids.col]
+
         valids.row = df.index[valids.row]
         valids.col = df.columns[valids.col]
+        repeated = [[int(y) for y in x.split("_")[1:]] for x in valids.row]
+        repeated = [x in y for x, y in list(zip(valids.col.astype(int), repeated))]
+        valids['repeated'] = repeated
+
+        ic(valids)
+        valids = valids.loc[~valids.repeated]
+        ic(valids)
+        input()
         valid_cuts = ["_".join(coords) for coords in list(zip(valids.row.tolist(), valids.col.tolist()))]
         valid_cuts = ["_"+"_".join(sorted(x.split("_")[1:])) for x in valid_cuts]
 
         valid_cuts = list(dict.fromkeys(valid_cuts))
+        ic(valid_cuts)
+        input()
 
         if len(valid_cuts) == 0:
             return None
@@ -222,19 +243,18 @@ class Hdcs:
 sim = Simulator()    
 s = Hdcs()
 
-prod = sim.simulate_tube60_prod(30)
+prod = sim.simulate_tube60_prod(20)
 # ic(prod)
 s.init_prod(prod)
 ic(s.prod)
 s._init_cuts_df()
-# s.cut_forced_waste()
-ic(s.prod)
+s.cut_forced_waste()
 s.set_max_depths()
-df = s.avlbl_cuts
-df['depth'] = [len(x.split("_")[1:]) for x in df.reps]
-ic(f"{len(df)} possible combinations")
-ic(df.sort_values(by=['depth', 'rest'], ascending=[False, True]))
 s.cut_best_fits()
+ic(s.avlbl_cuts)
+ic(s.cuts)
+ic(s.prod)
+ic(s.storage)
 
 
 
