@@ -202,7 +202,7 @@ class Hdcs:
 sim = Simulator()    
 s = Hdcs()
 
-prod = sim.simulate_tube60_prod(40)
+prod = sim.simulate_tube60_prod(50)
 # ic(prod)
 s.run_sequencer(prod)
 ic(s.cuts.fillna(""))
