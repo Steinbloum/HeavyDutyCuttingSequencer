@@ -8,16 +8,22 @@
         
     },
     "load" : {
+        
         "stock_lenght" : 6000,
         "linear_weight" : 3.41, 
         "linear_price" :  9.5    
     },
-    "storage" : [
-        [1000,1500], [1500,2000], [2000,2500], [2500,3000], [3000, 3500]
-    ],
+    "storage" : {
+        "min" : 1000,
+        "max" : 3501,
+        "step" : 500, 
+        "capacity" : 20,
+        "crit" : 5,
+        "safeguard" : 3
+    },
     "rules" : {
         "fit" : 60,
-        "acceptable" : 300, 
+        "acceptable" : 100, 
         "not_that_good" : 480
     }
     
