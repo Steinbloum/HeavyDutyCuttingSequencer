@@ -8,14 +8,14 @@
         
     },
     "load" : {
-        
-        "stock_lenght" : 6000,
+
+        "stock_lenght" : 8000,
         "linear_weight" : 3.41, 
         "linear_price" :  9.5    
     },
     "storage" : {
         "min" : 1000,
-        "max" : 3501,
+        "max" : 3500,
         "step" : 500, 
         "capacity" : 20,
         "crit" : 5,

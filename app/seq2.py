@@ -35,6 +35,7 @@ class Hdcs:
         df['qtt'] = 0
         # df['split'] = [np.mean([x, y]) for x, y in list(zip(df.mini, df.maxi))]
         self.storage = df
+        self.update_storage_status()
 
     
     def _set_prod(self, prod):
@@ -100,15 +101,20 @@ class Hdcs:
             self.make_cut(df.index[0])
 
     def run_sequencer(self, prod):
-        # ic(prod)
         self.init_prod(prod)
         self.init_cuts_df()
         self.cut_forced_waste()
         self.get_max_depth_cuts()
         ic(f"Processing {len(self.avlbl_cuts)} combinations")
+        self.cut_good_storage_fits(crit=True)
+        self.cut_good_storage_fits(300)
+        self.cut_good_storage_fits(500)
+        self.cut_best_fits(100)
+        self.cut_best_fits(300)
 
-        # self.cut_best_fits()
-        # ic(self.cuts, self.prod, self.storage)
+        self.cut_best_fits(3000)
+
+
 
 
 
@@ -209,16 +215,24 @@ class Hdcs:
             None: update avlbl_cuts
         """
         while True:
+            st = time.time()
             df = s._add_depth()
+            ic(f"end : {time.time()-st}")
             if df is None:
                 return None
+            st = time.time()
             idx = s.locate_possible_cuts(df)
+            ic(f"end : {time.time()-st}")
             if idx is None:
                 return None
             self.avlbl_cuts = pd.DataFrame(index = idx)
+            st = time.time()
             self.avlbl_cuts['rest'] = self.params['load']['stock_lenght'] - self.avlbl_cuts.index.map(self._get_lg_from_reps)
+            ic(f"end : {time.time()-st}")
+            st = time.time()
             self.avlbl_cuts['depth'] = self.avlbl_cuts.index.map(self._get_depth_from_reps)
             # ic(len(self.avlbl_cuts))
+            ic(f"end : {time.time()-st}")
         
 
 
@@ -255,13 +269,10 @@ class Hdcs:
         df['good'] = [any(x in y for y in rgs) for x in df.rest]
         df = df.loc[df['good']]
         df['location'] = self.get_storage_location_column(df)
-        ic(df)
-        # ic(self.storage.loc[self.storage.status == "CRIT_FILL", "name"].tolist())
         if crit_only : 
-            df = df.loc[df.location.isin("s_" + str(x) for x in [self.storage.loc[self.storage.status == "CRIT_FILL", "name"].tolist()])]
+            df = df.loc[df.location.isin([f"s_{x}" for x in self.storage.loc[self.storage.status == "CRIT_FILL", "name"].tolist()])]
         else :
-            df = df.loc[df.location.isin("s_" + str(x) for x in [self.storage.loc[self.storage.status != "CRIT_EMPTY", "name"].tolist()])]
-        ic(df)
+            df = df.loc[df.location.isin([f"s_{x}" for x in self.storage.loc[self.storage.status != "CRIT_EMPTY", "name"].tolist()])]
         df = df.sort_values(by ='depth', ascending=False)
         return list(zip(df.index.tolist(), df.location.tolist()))
     
@@ -271,22 +282,17 @@ class Hdcs:
         df = self.avlbl_cuts.copy()
         df['lg'] = self.params["load"]["stock_lenght"] - df.rest
         df['storable'] = self._get_store_column(True)
-        # ic(df)
         df = df.loc[df.storable]
-        # ic(df)
         df.drop(columns=['storable'])
         rgs = [range(x-fit, x) for x in self.storage.mini]
-        # ic(rgs)
         df['good'] = [any(x in y for y in rgs) for x in df.lg]
         df = df.loc[df['good']]
         df['location'] = self.get_storage_location_column(df, True)
-        ic(self.storage)
         if crit_only : 
-            df = df.loc[df.location.isin(self.storage.loc[self.storage.status == "CRIT_EMPTY", "name"].tolist())]
+            df = df.loc[df.location.isin([f"s_{x}" for x in self.storage.loc[self.storage.status == "CRIT_EMPTY", "name"].tolist()])]
         else :
-            df = df.loc[df.location.isin(self.storage.loc[self.storage.status != "CRIT_FILL", "name"].tolist())]
+            df = df.loc[df.location.isin([f"s_{x}" for x in self.storage.loc[self.storage.status != "CRIT_FILL", "name"].tolist()])]
         df = df.sort_values(by ='depth', ascending=False)
-        # ic(df)
         return list(zip(df.index.tolist(), df.location.tolist()))
 
     def get_storage_location_column(self, df = None, retrieve = False):
@@ -306,21 +312,21 @@ class Hdcs:
 
         r = lambda x : 500 * np.ceil(x/500) if retrieve else 500 * np.floor(x/500)
         return ["s_" + str(r(x)/1000)[:3].replace(".","m") for x in df.rest] if not retrieve else ["s_" + str(r(x)/1000)[:3].replace(".","m") for x in df.lg]
+    def cut_good_storage_fits(self, store_fit = 500, retrieve_fit = 500, crit=False):
 
-    def cut_good_storage_fits(self, store_fit = 500, retrieve_fit = 500):
-        ls = list(self._get_good_storage_fits(store_fit))
+        ls = list(self._get_good_retrieve_fits(retrieve_fit, crit_only=crit))
         while len(ls) > 0:
-            ls = self._get_good_storage_fits(store_fit)
-            # ic(ls)
-            self.make_cut(ls[0][0], excess=ls[0][1])
-            ls = self._get_good_storage_fits(store_fit)
-
-        ls = list(self._get_good_retrieve_fits(retrieve_fit))
-        while len(ls) > 0:
-            ls = self._get_good_retrieve_fits(retrieve_fit)
-            # ic(ls)
+            ls = self._get_good_retrieve_fits(retrieve_fit, crit_only=crit)
             self.make_cut(ls[0][0], origin=ls[0][1])
-            ls = self._get_good_retrieve_fits(retrieve_fit)
+            ls = self._get_good_retrieve_fits(retrieve_fit, crit_only=crit)
+
+        ls = list(self._get_good_storage_fits(store_fit, crit_only=crit))
+        while len(ls) > 0:
+            ls = self._get_good_storage_fits(store_fit, crit_only=crit)
+            self.make_cut(ls[0][0], excess=ls[0][1])
+            ls = self._get_good_storage_fits(store_fit, crit_only=crit)
+
+
         
     
 
@@ -334,29 +340,30 @@ sim = Simulator()
 s = Hdcs()
 s._init_storage()
 ls = []
-for n in range(5):
-    prod = sim.simulate_tube60_prod(20)
+for n in range(2):
+    prod = sim.simulate_tube60_prod(30)
     s.run_sequencer(prod)
-    ic(s.prod)
-    s.cut_good_storage_fits(100,100)
-    s.cut_best_fits(100)
-    ic(s.cuts)
-    s.cut_good_storage_fits(400, 400)
-    s.cut_best_fits(500)
-    ic(s.cuts)
-    ic(s.storage)
+    ls.append(s.cuts)
+    # ic(s.storage, s.cuts, s.prod)
+    # ic(s.storage)
     s.avlbl_cuts = None
     s.cuts = pd.DataFrame()
     s.prod = None
-    # ic(s.prod)
 
 
+for i, df in enumerate(ls):
+    df['day'] = i
 
-    
-    
-# df = pd.concat(ls).reset_index(drop=True)
-# df = df.dropna(subset=['origin', 'excess'])
+df = pd.concat(ls)
+max_waste = np.max(df.loc[df.excess == "waste", "rest"])
 # ic(df)
+# ic(max_waste)
+total_len = np.sum(df.lg)/1000
+total_new = len(df.loc[df.origin == "new"])
+total_waste = np.sum(df.loc[df.excess == 'waste', 'rest'])/1000
+waste_ratio = total_waste/total_len*100
+ic(total_len, total_new, total_waste, waste_ratio, max_waste)
+
 
 
 
