@@ -1,0 +1,22 @@
+c| seq2.py:331 in get_storage_location_column()
+    rgs: {range(2300, 2800): '2m3',
+          range(1800, 2300): '1m8',
+          range(3300, 3800): '3m3',
+          range(2800, 3300): '2m8',
+          range(1300, 1800): '1m3'}
+ic| seq2.py:351 in cut_good_storage_fits()- ls: []
+ic| seq2.py:331 in get_storage_location_column()
+    rgs: {range(1300, 1600): '1m3',
+          range(2800, 3100): '2m8',
+          range(1800, 2100): '1m8',
+          range(2300, 2600): '2m3',
+          range(3300, 3600): '3m3'}
+ic| seq2.py:351 in cut_good_storage_fits()- ls: []
+ic| seq2.py:331 in get_storage_location_column()
+    rgs: {range(1300, 1799): '1m3',
+          range(1800, 2299): '1m8',
+          range(2800, 3299): '2m8',
+          range(3300, 3799): '3m3',
+          range(2300, 2799): '2m3'}
+
+something is off with the range and its not cutting to storage anymore
