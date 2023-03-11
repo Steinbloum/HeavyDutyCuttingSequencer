@@ -39,15 +39,23 @@ def test_get_location_map():
     d = s._get_location_map_dict()
     assert isinstance(d, dict)
     df = pd.DataFrame({"a" : [1200, 3002, 2546, 8000]})
-    ls  = [[k if x in v else False for x in df.a] for k, v in s.loc_mapping_dict['store'].items()]
+    df["store_loc"] = [s.get_unique_location(x) for x in df.a]
+    df["rtv_loc"] = [s.get_unique_location(x, "retrieve") for x in df.a]
+    assert df.store_loc.tolist() == ["1m0", "3m0", "2m5", np.NaN]
+    assert df.rtv_loc.tolist() == ["1m5", "3m5", "3m0", np.NaN]
 
-    ic(ls)
-    ls= [x for x in [y for y in ls if y]]
-        
-        # np.NaN for x in ls if any(x)]
-    ic(ls)
-    df['rt_location'] = [k if x in v else np.NaN for x in df.a for k, v in s.loc_mapping_dict['retrieve'].items()]
-    assert df.st_location.tolist() == ["1m0", "3m0", "2m5"]
-    assert df.rt_location.tolist() == ["1m5", "3m5", "3m0"]
+@wrapper
+def test_get_status_map():
+    
+    s = Storage("tests/files/cfg.json")
+    s.init_storage()
+    df = pd.DataFrame({"a" : [1200, 3002, 2546, 8000]})
+    df["store_loc"] = [s.get_unique_location(x) for x in df.a]
+    df['status'] = [s.get_status(n) for n in df.store_loc]
+    s.storage.loc[s.storage.name == "1m0", "status"] = "OPEN"
+    df['status'] = [s.get_status(n) for n in df.store_loc]
+    assert df.loc[df.store_loc == "1m0", "status"].iloc[0] == "OPEN"
 
 
+
+# class Test
