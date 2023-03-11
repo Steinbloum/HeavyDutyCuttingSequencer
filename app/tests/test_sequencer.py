@@ -28,7 +28,6 @@ def wrapper(func):
 def test_get_storage_info():
     seq.storage = Storage("tests/files/cfg.json")
     seq.storage.init_storage()
-    # ic(seq.storage, seq.storage.storage)
     prod = pd.read_csv("tests/files/prod_tst.csv", index_col=False)
     seq.prod = prod
     seq.init_cuts_df()
@@ -41,6 +40,13 @@ def test_get_storage_info():
     assert "OPEN" in df.store_status.tolist()
     assert "OPEN" in df.rtv_status.tolist()
 
-
+@wrapper
+def test_add_depth():
+    seq.storage = Storage("tests/files/cfg.json")
+    seq.storage.init_storage()
+    prod = pd.read_csv("tests/files/prod_tst.csv", index_col=False)
+    seq.prod = prod
+    seq.init_cuts_df()
+    seq._add_depth()
 
 
