@@ -9,7 +9,7 @@ import numpy as np
 ic.configureOutput(includeContext=True)
 
 seq = Hdcs("tests/files/cfg.json")
-def wrapper(func):
+def printer(func):
     """Prints the name of the tested function, 
         Prints the exec time of the test"""
     def wrap(*args, **kwargs):
@@ -24,7 +24,7 @@ def wrapper(func):
         cprint(f"\nTest executed in {nd} seconds","green",  attrs=['underline'])
     return wrap
 
-@wrapper
+@printer
 def test_get_storage_info():
     seq.storage = Storage("tests/files/cfg.json")
     seq.storage.init_storage()
@@ -33,20 +33,48 @@ def test_get_storage_info():
     seq.init_cuts_df()
     df = seq.get_storage_info()
     assert isinstance(df, pd.DataFrame)
-    assert len(df == 18)
-    assert len(df.dropna() == 13)
-    seq.storage.storage.loc[seq.storage.storage.name == "2m0", "status"] = "OPEN"
+    assert len(df) == 14
+    assert len(df.dropna()) == 6
+    seq.storage.storage.loc[seq.storage.storage.name == "3m5", "status"] = "OPEN"
+    
     df = seq.get_storage_info()
     assert "OPEN" in df.store_status.tolist()
     assert "OPEN" in df.rtv_status.tolist()
 
-@wrapper
+@printer
 def test_add_depth():
     seq.storage = Storage("tests/files/cfg.json")
     seq.storage.init_storage()
     prod = pd.read_csv("tests/files/prod_tst.csv", index_col=False)
     seq.prod = prod
     seq.init_cuts_df()
-    seq._add_depth()
+    df = seq._add_depth()
+    # ic(df)
+    assert len(df) == 14
+    assert len(df.columns) == 12
+
+@printer
+def test_make_combinations_list():
+    seq.storage = Storage("tests/files/cfg.json")
+    seq.storage.init_storage()
+    prod = pd.read_csv("tests/files/prod_tst.csv", index_col=False)
+    seq.prod = prod
+    seq.init_cuts_df()
+    df = seq._add_depth()
+    df = seq._get_valid_combinations_dataframe(df)
+    ic(df)
+    seq.avlbl_cuts = pd.concat([seq.avlbl_cuts, df])
+    df = seq._add_depth()
+    # ic(df)
+    df = seq._get_valid_combinations_dataframe(df)
+    ic(df)
+    seq.avlbl_cuts = pd.concat([seq.avlbl_cuts, df])
+    df = seq._add_depth()
+    # ic(df)
+    df = seq._get_valid_combinations_dataframe(df)
+    ic(df)
+    seq.avlbl_cuts = pd.concat([seq.avlbl_cuts, df])
+    ic(seq.avlbl_cuts.sort_values(by="rest"))
+    ic(seq.get_storage_info())
 
 

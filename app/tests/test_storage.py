@@ -7,7 +7,7 @@ import numpy as np
 ic.configureOutput(includeContext=True)
 
 
-def wrapper(func):
+def printer(func):
     """Prints the name of the tested function, 
         Prints the exec time of the test"""
     def wrap(*args, **kwargs):
@@ -24,7 +24,7 @@ def wrapper(func):
 
 
 
-@wrapper
+@printer
 def test_init_storage():
     s = Storage("tests/files/cfg.json")
     s.init_storage()
@@ -32,7 +32,7 @@ def test_init_storage():
     assert isinstance(sto, pd.DataFrame)
     assert list(sto.columns) == ["mini", "maxi", "qtt", "status", "name"]
 
-@wrapper
+@printer
 def test_get_location_map():
     s = Storage("tests/files/cfg.json")
     s.init_storage()
@@ -44,7 +44,7 @@ def test_get_location_map():
     assert df.store_loc.tolist() == ["1m0", "3m0", "2m5", np.NaN]
     assert df.rtv_loc.tolist() == ["1m5", "3m5", "3m0", np.NaN]
 
-@wrapper
+@printer
 def test_get_status_map():
     
     s = Storage("tests/files/cfg.json")

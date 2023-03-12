@@ -169,9 +169,14 @@ class Hdcs:
     """COMBINATIONS BUILDER"""
 
     def _add_depth(self):
+        """Gets the dataframe of the next combination level
+
+        Returns:
+            pd.DataFrame: index = _rep_rep, cols = summed reps
+        """        
         df = self.avlbl_cuts.copy()
         df = df.loc[df.depth == np.max(df.depth.tolist())]
-        ic(df)
+        # ic(df)
         max_val = np.max(df.rest)
         d = {rep:[x-lg for x in df.rest] 
             for rep, lg 
@@ -180,41 +185,40 @@ class Hdcs:
 
         conc = pd.DataFrame.from_dict(d)
         conc.index = df.index
-        ic(conc)
         return conc
 
+    def _get_valid_combinations_dataframe(self, df):
+        """gets the df of all unique possible combinations
+
+        Args:
+            df (pd.Dataframe): df from self.add_depth
+
+        Returns:
+            pd.Dataframe: to add to index
+        """
+        valids = pd.DataFrame(np.where(df>0), index = ["row", "col"]).transpose()
+        valids.row = df.index[valids.row]
+        valids.col = df.columns[valids.col]
+        ints = [self._get_int_list_from_reps(x) for x in valids.row]
+        valids['dupli'] = [x in y for x, y in zip(valids.col, ints)]
+        valids = valids.loc[~valids.dupli]
+        valids.col = valids.col.astype(str)
+        valid_cuts = ["_".join(coords) for coords in list(zip(valids.row.tolist(), valids.col.tolist()))]
+        valid_cuts = ["_"+"_".join(sorted(x.split("_")[1:])) for x in valid_cuts]
+        valid_cuts = list(dict.fromkeys(valid_cuts))
+        df = pd.DataFrame(index=valid_cuts)
+        df['lg'] = df.index.map(self._get_lg_from_reps)
+        df["rest"] = self.params['load']['stock_lenght']-df.lg
+        df['depth'] = df.index.map(self._get_depth_from_reps)
+
+        return df if len(valid_cuts)>0 else None
 
 
 
     #################REFACT###################
 
 
-    # def locate_possible_cuts(self, conc_df):
-    #     """get the list of all possible combinations
 
-    #     Args:
-    #         conc_df (pd.DataFrame): Dataframe from _add_depth
-
-    #     Returns:
-    #         None|list: None if no cuts possible else list of cuts
-    #     """
-    #     idx = self.avlbl_cuts.index.tolist()
-    #     df = conc_df
-    #     # ic(df)
-    #     valids = pd.DataFrame(np.where(df>0), index = ["row", "col"]).transpose()
-    #     valids.row = df.index[valids.row]
-    #     valids.col = df.columns[valids.col]
-    #     ints = [self._get_int_list_from_reps(x) for x in valids.row]
-    #     valids['dupli'] = [x in y for x, y in zip(valids.col, ints)]
-    #     valids = valids.loc[~valids.dupli]
-    #     valids.col = valids.col.astype(str)
-
-    #     #make list : 
-    #     valid_cuts = ["_".join(coords) for coords in list(zip(valids.row.tolist(), valids.col.tolist()))]
-    #     valid_cuts = ["_"+"_".join(sorted(x.split("_")[1:])) for x in valid_cuts]
-    #     valid_cuts = list(dict.fromkeys(valid_cuts))
-    #     return idx + valid_cuts if len(valid_cuts)>0 else None
-        
     # def get_max_depth_cuts(self):
     #     """generates the list of all the possible cuts
 
@@ -239,7 +243,7 @@ class Hdcs:
     def get_storage_info(self):
 
         avlbl = self.avlbl_cuts
-        avlbl['store_loc'] = [self.storage.get_unique_location(x) for x in avlbl.lg]
+        avlbl['store_loc'] = [self.storage.get_unique_location(x) for x in avlbl.rest]
         avlbl["store_status"] = [self.storage.get_status(x) for x in avlbl.store_loc]
         avlbl['rtv_loc'] = [self.storage.get_unique_location(x, "retrieve") for x in avlbl.lg]
         avlbl["rtv_status"] = [self.storage.get_status(x) for x in avlbl.rtv_loc]
