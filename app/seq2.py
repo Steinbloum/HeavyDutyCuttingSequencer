@@ -213,6 +213,20 @@ class Hdcs:
 
         return df if len(valid_cuts)>0 else None
 
+    def get_max_depth_combinations(self):
+
+        df = self.avlbl_cuts.copy()
+        
+        while True:
+            df = self._get_valid_combinations_dataframe(self._add_depth())
+            if df is None:
+                break
+            self.avlbl_cuts = pd.concat([self.avlbl_cuts,df])
+        ic(self.avlbl_cuts)
+        
+        df = self.get_storage_info()
+        return df
+
 
 
     #################REFACT###################

@@ -1,5 +1,6 @@
 # from app.seq2 import Hdcs
 from app.seq2 import Hdcs
+from app.sequencer import Simulator
 from app.storage import Storage
 import time
 from termcolor import cprint
@@ -8,6 +9,7 @@ import pandas as pd
 import numpy as np 
 ic.configureOutput(includeContext=True)
 
+sim = Simulator()
 seq = Hdcs("tests/files/cfg.json")
 def printer(func):
     """Prints the name of the tested function, 
@@ -32,6 +34,7 @@ def test_get_storage_info():
     seq.prod = prod
     seq.init_cuts_df()
     df = seq.get_storage_info()
+    ic(df)
     assert isinstance(df, pd.DataFrame)
     assert len(df) == 14
     assert len(df.dropna()) == 6
@@ -77,6 +80,16 @@ def test_make_combinations_list():
     ls = ["_".join([str(x) for x in y]) for y in ls]
     assert len(list(dict.fromkeys(ls))) == len(ls)
 
-
+@printer
+def test_get_max_depth():
+    seq.storage = Storage("tests/files/cfg.json")
+    seq.storage.init_storage()
+    prod = sim.simulate_tube60_prod(50)
+    ic(prod)
+    seq.prod = prod
+    seq.init_cuts_df()
+    ic(seq.avlbl_cuts)
+    df = seq.get_max_depth_combinations()
+    ic(df)
 
 
