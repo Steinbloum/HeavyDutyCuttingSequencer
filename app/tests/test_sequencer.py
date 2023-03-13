@@ -62,19 +62,21 @@ def test_make_combinations_list():
     seq.init_cuts_df()
     df = seq._add_depth()
     df = seq._get_valid_combinations_dataframe(df)
-    ic(df)
     seq.avlbl_cuts = pd.concat([seq.avlbl_cuts, df])
     df = seq._add_depth()
-    # ic(df)
     df = seq._get_valid_combinations_dataframe(df)
-    ic(df)
     seq.avlbl_cuts = pd.concat([seq.avlbl_cuts, df])
     df = seq._add_depth()
-    # ic(df)
     df = seq._get_valid_combinations_dataframe(df)
-    ic(df)
     seq.avlbl_cuts = pd.concat([seq.avlbl_cuts, df])
-    ic(seq.avlbl_cuts.sort_values(by="rest"))
-    ic(seq.get_storage_info())
+    df = seq.avlbl_cuts
+    assert len(df) == 106
+    assert df.columns.tolist() == ["lg", "rest", "depth"]
+    assert np.max(df.depth) == 4
+    ls = [seq._get_int_list_from_reps(x) for x in df.index.tolist()]
+    ls = ["_".join([str(x) for x in y]) for y in ls]
+    assert len(list(dict.fromkeys(ls))) == len(ls)
+
+
 
 

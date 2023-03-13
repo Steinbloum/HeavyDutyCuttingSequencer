@@ -10,7 +10,8 @@ seq = Hdcs()
 # print(seq.prod)
 # seq.prod.to_csv("prod_tst.csv", index = False)
 print(seq.storage.storage)
-prod = pd.read_csv("app/tests/files/prod_tst.csv", index_col=False)
+prod = s.simulate_tube60_prod(50)
+
 seq.prod = prod
 seq.init_cuts_df()
 avlbl = seq.avlbl_cuts
