@@ -34,7 +34,6 @@ def test_get_storage_info():
     seq.prod = prod
     seq.init_cuts_df()
     df = seq.get_storage_info()
-    ic(df)
     assert isinstance(df, pd.DataFrame)
     assert len(df) == 14
     assert len(df.dropna()) == 6
@@ -84,12 +83,73 @@ def test_make_combinations_list():
 def test_get_max_depth():
     seq.storage = Storage("tests/files/cfg.json")
     seq.storage.init_storage()
-    prod = sim.simulate_tube60_prod(50)
-    ic(prod)
-    seq.prod = prod
+    seq.prod = pd.read_csv("tests/files/prod_tst.csv", index_col=False)
+    # seq._deploy_quantities()
+    # ic(len(seq.prod))
     seq.init_cuts_df()
-    ic(seq.avlbl_cuts)
     df = seq.get_max_depth_combinations()
-    ic(df)
+    assert len(df) == 106
+    assert df.columns.tolist() == ['lg', 'rest', 'depth', 'store_loc', 'store_status', 'rtv_loc', 'rtv_status']
+    assert np.max(df.depth) == 4
+    ls = [seq._get_int_list_from_reps(x) for x in df.index.tolist()]
+    ls = ["_".join([str(x) for x in y]) for y in ls]
+    assert len(list(dict.fromkeys(ls))) == len(ls)
+
+@printer
+def test_make_cut():
+
+    seq.storage = Storage("tests/files/cfg.json")
+    seq.storage.init_storage()
+    seq.prod = pd.read_csv("tests/files/prod_tst.csv", index_col=False)
+    # ic(len(seq.prod))
+    seq.init_cuts_df()
+    df = seq.get_max_depth_combinations()
+    # ic(df)
+    seq.make_cut("_0_1_2_3")
+    #test with storage
+
+    for i in range(4):
+        assert i not in seq.prod.index
+        assert i in seq.cuts.rep
+
+@printer
+def test_cut_forced_waste():
+    seq = Hdcs("tests/files/cfg.json")
+    seq.storage = Storage("tests/files/cfg.json")
+    seq.storage.init_storage()
+    seq.prod = pd.read_csv("tests/files/prod_tst.csv", index_col=False)
+    seq.init_cuts_df()
+    seq.get_max_depth_combinations()
+    seq.cut_forced_waste()
+    reps = [12,13]
+    assert seq.cuts.rep.tolist() == reps
+    for x in seq.prod.rep:
+        assert x not in reps
+    
+@printer
+def test_cut_critical_retrieve():
+    seq = Hdcs("tests/files/cfg.json")
+    seq.storage = Storage("tests/files/cfg.json")
+    seq.storage.init_storage()
+    seq.storage.storage.loc[seq.storage.storage.name.isin(["3m5", "2m5"]), "qtt"] = 20
+    seq.storage._update_status()
+    ic(seq.storage.storage)
+    # seq.prod = pd.read_csv("tests/files/prod_tst.csv", index_col=False)
+    prod = sim.simulate_tube60_prod(35)
+    seq.init_prod(prod)
+    seq.init_cuts_df()
+    seq.get_max_depth_combinations()
+    seq.cut_forced_waste()
+    seq._retrieve_critical()
+    seq._store_critical()
+    seq._cut_good_fits()
+    seq._cut_good_fits(500)
+    ic(seq.cuts)
+    ic(seq.prod)
+    ic(seq.storage.storage)
 
 
+
+
+
+    # seq.cut_critical_retrieve()

@@ -56,6 +56,20 @@ def test_get_status_map():
     df['status'] = [s.get_status(n) for n in df.store_loc]
     assert df.loc[df.store_loc == "1m0", "status"].iloc[0] == "OPEN"
 
+def test_increment_decrement_storage():
+    s = Storage("tests/files/cfg.json")
+    s.init_storage()
+    # ic(s.storage)
+    for n in range(9):
+        s.store('1m5')
+    # ic(s.storage)
+    for n in range(11):
+        s.store("1m5")
+    # ic(s.storage)
+    for n in range(12):
+        s.retrieve('1m5')
+
+
 
 
 # class Test

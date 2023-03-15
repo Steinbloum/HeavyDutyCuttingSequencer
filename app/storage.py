@@ -33,9 +33,12 @@ class Storage:
         df = self.storage
         crit = {"min" : int(self.cfg["capacity"] * (self.cfg['crit']/100)),
                 "max" : int(self.cfg["capacity"]- (self.cfg["capacity"] * (self.cfg['crit']/100)))}
-        df['status'] = ["CRIT_FILL" if x<crit['min'] 
-                                    else ("CRIT_EMPTY" if x>=crit['max']
-                                          else "OPEN") for x in self.storage.qtt]
+        df['status'] = ["CRIT_EMPTY" if 0<x<crit['min'] 
+                                    else ("CRIT_FULL" if self.cfg["capacity"]>x>=crit['max']
+                                          else("FULL" if x == self.cfg["capacity"]
+                                               else "EMPTY" if x == 0
+                                                    else "OPEN")) for x in self.storage.qtt]
+        # ic(df)
 
     def _get_location_map_dict(self):
         df = self.storage
@@ -78,4 +81,12 @@ class Storage:
         except IndexError:
             return np.NaN
     
+    def store(self, location):
+        self.storage.loc[self.storage.name == location, "qtt"] += 1
+        self._update_status()
+
+    def retrieve(self, location): 
+        self.storage.loc[self.storage.name == location, "qtt"] -= 1
+        self._update_status()
+
 
