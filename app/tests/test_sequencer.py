@@ -135,7 +135,7 @@ def test_cut_critical_retrieve():
     seq.storage._update_status()
     ic(seq.storage.storage)
     # seq.prod = pd.read_csv("tests/files/prod_tst.csv", index_col=False)
-    prod = sim.simulate_tube60_prod(35)
+    prod = sim.simulate_tube60_prod(60)
     seq.init_prod(prod)
     seq.init_cuts_df()
     seq.get_max_depth_combinations()

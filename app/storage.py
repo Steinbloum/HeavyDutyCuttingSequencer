@@ -30,14 +30,32 @@ class Storage:
 
     def _update_status(self):
         """updates status column based on qtt values"""
+
+        """REFACT"""
         df = self.storage
-        crit = {"min" : int(self.cfg["capacity"] * (self.cfg['crit']/100)),
-                "max" : int(self.cfg["capacity"]- (self.cfg["capacity"] * (self.cfg['crit']/100)))}
-        df['status'] = ["CRIT_EMPTY" if 0<x<crit['min'] 
-                                    else ("CRIT_FULL" if self.cfg["capacity"]>x>=crit['max']
-                                          else("FULL" if x == self.cfg["capacity"]
-                                               else "EMPTY" if x == 0
-                                                    else "OPEN")) for x in self.storage.qtt]
+        ic(self.cfg)
+        ic(self.cfg['capacity'])
+        def get_status(qtt):
+            ic(qtt)
+            if qtt == 0 : 
+                return "EMPTY"
+            if qtt >= self.cfg['capacity']:
+                return "FULL"
+            if qtt <= int(self.cfg["capacity"] * (self.cfg['crit']/100)):
+                return "CRIT_EMPTY"
+            if qtt >= np.ceil(self.cfg["capacity"]- (self.cfg["capacity"] * (self.cfg['crit']/100))):
+                return "CRIT_FULL"
+            return "OPEN"
+        df["status"] = [get_status(x) for x in df.qtt]
+
+        # df = self.storage
+        # crit = {"min" : int(self.cfg["capacity"] * (self.cfg['crit']/100)),
+        #         "max" : int(self.cfg["capacity"]- (self.cfg["capacity"] * (self.cfg['crit']/100)))}
+        # df['status'] = ["CRIT_EMPTY" if 0<x<crit['min'] 
+        #                             else ("CRIT_FULL" if self.cfg["capacity"]>x>=crit['max']
+        #                                   else("FULL" if x == self.cfg["capacity"]
+        #                                        else "EMPTY" if x == 0
+        #                                             else "OPEN")) for x in self.storage.qtt]
         # ic(df)
 
     def _get_location_map_dict(self):
