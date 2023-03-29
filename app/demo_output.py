@@ -1,4 +1,4 @@
-from sequencer import Sequencer, Simulator
+from app.simulator import Sequencer, Simulator
 import pandas as pd
 from icecream import ic
 import numpy as np

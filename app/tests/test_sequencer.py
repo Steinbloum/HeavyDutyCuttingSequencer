@@ -1,6 +1,6 @@
 # from app.seq2 import Hdcs
 from app.seq2 import Hdcs
-from app.sequencer import Simulator
+from app.simulator import Simulator
 from app.storage import Storage
 import time
 from termcolor import cprint

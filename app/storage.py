@@ -33,11 +33,8 @@ class Storage:
 
         """REFACT"""
         df = self.storage
-        ic(self.cfg)
-        ic(self.cfg['capacity'])
         def get_status(qtt):
-            ic(qtt)
-            if qtt == 0 : 
+            if qtt <= 0 : 
                 return "EMPTY"
             if qtt >= self.cfg['capacity']:
                 return "FULL"
@@ -99,6 +96,9 @@ class Storage:
         except IndexError:
             return np.NaN
     
+    def get_available(self, name):
+        return int(self.cfg['capacity'] - self.storage.loc[self.storage.name == name, "qtt"])
+
     def store(self, location):
         self.storage.loc[self.storage.name == location, "qtt"] += 1
         self._update_status()

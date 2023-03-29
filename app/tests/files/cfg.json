@@ -17,8 +17,8 @@
         "min" : 1000,
         "max" : 4000,
         "step" : 500, 
-        "capacity" : 20,
-        "crit" : 25
+        "capacity" : 25,
+        "crit" : 20
     
     },
     "rules" : {

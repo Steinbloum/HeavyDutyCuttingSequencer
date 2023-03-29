@@ -20,6 +20,10 @@ class Hdcs:
         self.cuts = pd.DataFrame()
         self.avlbl_cuts = None
 
+        ##Testing
+        self.name = None
+        self.retrieve_first = True
+
     """INIT METHODS"""
     
     def _init_from_json(self):
@@ -66,10 +70,15 @@ class Hdcs:
         if origin != "new":
             self.storage.retrieve(origin.split("_")[-1])
             cut.loc[cut.index[-1], "rest"] = self.params['storage']["step"]/2
+            # ic("retreiev", cut)
         if excess != "waste":
             self.storage.store(excess.split("_")[-1])
             cut.loc[cut.index[-1], "rest"] = np.NaN
-        
+            # ic("retreiev", cut)
+        if excess == "waste":
+            cut = self._split_waste(cut)
+
+
         self.cuts = pd.concat([self.cuts, cut])  
         self.prod = self.prod.loc[~self.prod.rep.isin(ints)]
         if isinstance(update, pd.DataFrame):
@@ -77,14 +86,16 @@ class Hdcs:
         else :
             self.update_avlbl_cuts()
             ic("CUT DONE", cut)
+            self.storage._update_status()
             return True
         
-        ic("CUT DONE", cut)
+        # ic("CUT DONE", cut)
         return df
         
     def cut_forced_waste(self):
-        df = self.avlbl_cuts.loc[self.avlbl_cuts.depth == 1].copy()
-        df = df.loc[df.rest < np.min(df.lg)]
+        df = self.avlbl_cuts.loc[(self.avlbl_cuts.depth == 1)&~(isinstance(self.avlbl_cuts.store_loc, str))].copy()
+        df = df.loc[df.rest < self.params["storage"]["min"]]
+        ic(df)
         for rep in df.index:
             df = self.make_cut(rep, update= df)
 
@@ -111,15 +122,22 @@ class Hdcs:
             inpt (None, pd.DataFrame, optional): if custom avalbable_df. Defaults to None.
         """        
 
-        df = inpt if inpt is not None else self.avlbl_cuts
-        df = df.loc[~(df.rtv_status == "EMPTY")
-                                        ].sort_values(by="depth",ascending=False
-                                        ).dropna(subset="rtv_loc"
-                                        ).copy()
+        df = inpt if inpt is not None else self.avlbl_cuts.copy()
         ic(df)
+        # df = df.loc[~(df.rtv_status == "EMPTY")
+        #                                 ].sort_values(by="depth",ascending=False
+        #                                 ).dropna(subset="rtv_loc"
+        #                                 )
+        df = df.dropna(subset="rtv_loc", axis = 0).sort_values(by='depth',ascending = True)
+        df = df.loc[df.rtv_status != "EMPTY"]
+        
         while len(df) > 0:
-            ic(df)
-            df = self.make_cut(df.index[0], origin=df.rtv_loc[0], update=df)
+
+            # ic("retrierve", df, self.storage.storage)
+            df = self.make_cut(df.index[0], origin=df.rtv_loc.iloc[0], update=df)
+            df = self.get_storage_info(df)
+            df = df.loc[df.rtv_status != "EMPTY"]
+            # ic(self.storage.storage)
         if inpt is not None:
             return self.update_avlbl_cuts(inpt)
         self.update_avlbl_cuts()
@@ -132,12 +150,15 @@ class Hdcs:
         """        
 
         df = inpt if inpt is not None else self.avlbl_cuts
-        df = df.loc[~(df.store_status == "FULL")].dropna(subset="store_loc").copy()
-        ic(df)
+        # df = df.loc[~(df.store_status == "FULL")].sort_values(by="depth",ascending=False
+        #                                 ).dropna(subset="store_loc").copy()
+        df = df.dropna(subset="store_loc", axis = 0).sort_values(by='depth',ascending = False)
+        df = df.loc[df.store_status != "FULL"]
         while len(df) > 0:
-            ic(df)
-            df = self.make_cut(df.index[0], excess=df.store_loc[0], update=df)
-            df = df.loc[~(df.store_status == "FULL")].dropna(subset="store_loc")
+            df = self.make_cut(df.index[0], excess=df.store_loc.iloc[0], update=df)
+            df = self.get_storage_info(df)
+            df = df.loc[df.store_status != "FULL"]
+            # df = df.loc[~(df.store_status == "FULL")]
         if inpt is not None:
             return self.update_avlbl_cuts(inpt)
         self.update_avlbl_cuts()
@@ -178,11 +199,60 @@ class Hdcs:
         self.init_cuts_df()
         self.get_max_depth_combinations()
         self.cut_forced_waste()
-        self._retrieve_critical()
-        self._store_critical()
+        if self.retrieve_first:
+            self._retrieve_max()
+        self._cut_good_fits(fit=100)
+        df = self._get_priority_cuts()
+        ic(df)
+        while len(df)>0:
+            df = self.make_cut(df.index[0], update=df)
+        self.update_avlbl_cuts()
         self._cut_good_fits()
-        self._cut_good_fits(500)
+        if not self.retrieve_first:
+            self._retrieve_max()
+        self._store_max()
+        for n in self.avlbl_cuts.index:
+            self.make_cut(n)
+        # ic(len(self.avlbl_cuts), self.avlbl_cuts.sort_values(by=["rest", "depth"], ascending=[True, False]), self.prod)
+        # ic(self.cuts)
+        # self.cuts.to_csv('cuts_8m_end_storage.csv', index=False)
 
+    def _split_waste(self, cut):
+        # ic("in split")
+        rest = cut.rest.iloc[-1]
+        minis = lambda : self.storage.storage.loc[self.storage.storage.status != "FULL"
+                                        ].sort_values(by=["qtt", "mini"], ascending=[True, False]
+                                        ).mini.tolist()
+        st = self.storage.storage.copy()
+        mins = minis()
+        if len(mins) == 0 :
+            return cut
+        while rest >= np.min(mins):
+            for n in mins:
+                if rest >= n:
+                    split = {
+                        "lg" : n,
+                        "label" : np.NaN,
+                        "rep" : np.NaN,
+                        "depth" : cut.depth.iloc[-1],
+                        "origin" : "split",
+                        "excess" : "waste",
+                        "rest" : rest - n,
+                        "cnt" : cut.cnt.iloc[-1]
+                    }
+
+                    cut.loc[cut.index[-1], ["rest", "excess"]] = [np.NaN, "split"]
+                    cut = pd.concat([cut, pd.DataFrame(split, index=[0])], ignore_index=True)
+                    ic(cut)
+                    ic(self.storage.storage)
+                    self.storage.store(st.loc[st.mini == n, "name"].iloc[0])
+                    ic(st.loc[st.mini == n, "name"].iloc[0])
+                    ic(self.storage.storage)
+                    rest = cut.rest.iloc[-1]
+                    mins = minis()
+                    ic("SPLIT", cut)
+        # cut.loc[cut.index[-1], "excess"] = st.loc[st.mini == cut.lg.iloc[-1], "name"].iloc[0]
+        return cut
 
 
     """DATAFRAME MANIUPLATION METHODS"""
@@ -224,10 +294,14 @@ class Hdcs:
         return len(self._get_int_list_from_reps(reps))
 
     def update_avlbl_cuts(self, inpt = False):
+        # ic(self.cuts)
         df = self.avlbl_cuts.copy() if not isinstance(inpt, pd.DataFrame) else inpt
+        if len(self.cuts) == 0:
+            return df
         df['iscut'] = [any([x in (self.cuts.rep) for x in z])
                         for z in [self._get_int_list_from_reps(x) 
                         for x in df.index]]
+        
         if not isinstance(inpt, pd.DataFrame):
             self.avlbl_cuts = df.loc[~df.iscut].drop(columns="iscut")
             self.avlbl_cuts = self.get_storage_info()
@@ -250,19 +324,33 @@ class Hdcs:
             return cnt
         
                 
-        ls = self._get_unstorable_list()
+        ls = self._get_unstorable_lenghts_list() + self._get_excess_storage_list()
         df = self.avlbl_cuts.copy()
-        # df = df.loc[df.depth == 2]
-        ic(df.index)
-        # ic(ls)
         ints = [self._get_int_list_from_reps(x) for x in df.index]
-        # ic(len(ints))
         ts = [compare((x, ls)) for x in ints]
         df['prio'] = ts
-        # nb = [cnt(((x, ls)))]
-        df = df.loc[df.prio > 0]
-        df = df.sort_values(by=['rest','prio', 'depth'], ascending=[True, False, False])
+        # df_match = df.loc[df.depth == df.prio]
+        df = df.loc[(df.prio >= 1)&(df.depth >= 2)&(df.rest<self.params["storage"]["min"])]
+        df = df.loc[df.depth == df.prio]
+        # ic(df_match)
+        df = df.sort_values(by=['prio','rest'], ascending = [True, True])
+        ic(df)
         return df
+
+    def _get_stats(self):
+        
+        return dict(total_linear = np.sum(self.cuts.dropna(subset="rep").lg)/1000,
+                    total_waste = np.sum(self.cuts.rest)/1000,
+                    max_waste = np.max(self.cuts.rest),
+                    retrieved = len(self.cuts.origin.loc[~self.cuts.origin.isin(["new", "split"])].dropna()),
+                    stored = len(self.cuts.excess.loc[self.cuts.excess != "waste"].dropna()),
+                    consumed_stock = self.cuts.origin.value_counts()["new"],
+                    consumed_linear = self.cuts.origin.value_counts()["new"] * self.params['load']['stock_lenght'] / 1000,
+
+                    waste_ratio = round((np.sum(self.cuts.rest)/1000 )/ (np.sum(self.cuts.lg)/1000) * 100, 2))
+
+
+
 
     """COMBINATIONS BUILDER"""
 
@@ -326,12 +414,29 @@ class Hdcs:
         ic(f"TOTAL COMBINATIONS : {len(self.avlbl_cuts)}")
         return self.avlbl_cuts
 
-    def _get_unstorable_list(self):
+    def _get_unstorable_lenghts_list(self):
         df = self.avlbl_cuts.loc[self.avlbl_cuts.depth == 1].copy()
         df = df.loc[~df.index.isin(df.dropna(subset=["store_loc"],axis=0).index)]
         ls = list(itertools.chain.from_iterable([self._get_int_list_from_reps(x)for x in df.index]))
         return ls
 
+    def _get_excess_storage_list(self):
+        df = self.avlbl_cuts.loc[self.avlbl_cuts.depth == 1]
+        gr = df.groupby("store_loc").count()
+        gr['available'] = [self.storage.get_available(x) for x in gr.index]
+        gr['dispatch'] = gr.store_status - gr.available
+        gr = gr.loc[gr.dispatch > 0]
+        tups = list(zip(gr.index, gr.dispatch))
+        ls =  []
+        for tup in tups:
+            _ls = df.loc[df.store_loc == tup[0]][0:tup[1]].index.tolist()
+            _ls = list(itertools.chain.from_iterable([self._get_int_list_from_reps(x)for x in _ls]))
+            ls.extend(_ls)
+        return ls
+
+
+        
+        
     """STORAGE MANAGEMENT"""
 
     def get_storage_info(self, inpt = False):
