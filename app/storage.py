@@ -97,6 +97,9 @@ class Storage:
             return np.NaN
     
     def get_available(self, name):
+        # ic(self.storage)
+        # ic(name)
+        # ic(self.storage.loc[self.storage.name == name, "qtt"])
         return int(self.cfg['capacity'] - self.storage.loc[self.storage.name == name, "qtt"])
 
     def store(self, location):

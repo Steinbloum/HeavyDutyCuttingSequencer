@@ -16,10 +16,12 @@ seq6.name = "6m"
 seqsm.name = "SS"
 
 
+prod = s.simulate_tube60_prod(20)
+ic(prod)
+input()
 
 
-
-d = s.compare_algos([seq8,seq7, seq6, seqsm], 20, 15)
-s.output_stats_histo(d['stats'])
-s.output_activty_storage_lchart(d['storage'])
+# d = s.compare_algos([seq8,seq7, seq6, seqsm], 20, 15)
+s.output_stats_histo(pd.read_csv('comp_stats.csv', index_col=False))
+s.output_activty_storage_lchart(pd.read_csv('comp_cuts.csv', index_col=False))
 
